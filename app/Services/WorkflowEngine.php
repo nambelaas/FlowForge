@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Jobs\ExecuteWorkflowStep;
+use App\Models\StepRun;
 use App\Models\WorkflowRun;
 use Exception;
 use Illuminate\Support\Facades\Bus;
@@ -82,7 +83,18 @@ class WorkflowEngine
             'started_at' => now()
         ]);
 
-        // 2. Ambil semua step yang tidak punya dependensi (In-Degree = 0)
+        // 2. Inisialisasi SEMUA step_runs ke database dengan status 'PENDING' Ini memastikan tabel step_runs terisi sejak awal alur kerja dipicu!
+        foreach ($sortedSteps as $step) {
+            StepRun::create([
+                'workflow_run_id' => $workflowRun->id,
+                'step_id' => $step['id'],
+                'type' => $step['type'],
+                'status' => 'PENDING',
+                'logs' => 'Waiting for dependencies to complete...',
+            ]);
+        }
+
+        // 3. Ambil semua step yang tidak punya dependensi (In-Degree = 0)
         $initialJobs = [];
         foreach ($sortedSteps as $step) {
             if (empty($step['depends_on'])) {
@@ -90,7 +102,13 @@ class WorkflowEngine
             }
         }
 
-        // 3. Bungkus ke dalam Laravel Batch
+        // 4. Jika tidak ada step awal yang valid, gagalkan langsung
+        if (empty($initialJobs)) {
+            $workflowRun->update(['status' => 'FAILED', 'completed_at' => now()]);
+            throw new Exception("Format DAG Salah: Tidak ditemukan langkah awal tanpa dependensi.");
+        }
+
+        // 5. Bungkus ke dalam Laravel Batch
         $batch = Bus::batch($initialJobs)
             ->then(function ($batch) use ($workflowRun) {
                 // Semua step sukses berjalan tanpa interupsi

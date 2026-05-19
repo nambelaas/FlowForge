@@ -10,6 +10,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
 use App\Models\StepRun;
+use App\Models\WorkflowRun;
 use Exception;
 
 class ExecuteWorkflowStep implements ShouldQueue
@@ -90,7 +91,42 @@ class ExecuteWorkflowStep implements ShouldQueue
                 'duration_ms' => round(($endTime - $startTime) * 1000)
             ]);
 
+            $batch = $this->batch();
+            if ($batch) {
+                // Ambil data run induk untuk melihat struktur lengkap alur kerja
+                $workflowRun = WorkflowRun::with('workflowVersion')->find($this->workflowRunId);
+                if (!$workflowRun || !$workflowRun->workflowVersion) {
+                    throw new Exception("Gagal memicu langkah berikutnya: Data run atau versi alur kerja tidak ditemukan.");
+                }
 
+                $allSteps = $workflowRun->workflowVersion->dag_definition['steps'];
+
+                // Cari step apa saja yang bergantung pada step yang BARU SELESAI ini
+                foreach ($allSteps as $nextStep) {
+                    if (in_array($this->step['id'], $nextStep['depends_on'] ?? [])) {
+
+                        // Cek apakah SEMUA dependensi dari nextStep ini sudah berstatus SUCCESS di database
+                        $dependencies = $nextStep['depends_on'];
+                        $completedDependenciesCount = StepRun::where('workflow_run_id', $this->workflowRunId)
+                            ->whereIn('step_id', $dependencies)
+                            ->where('status', 'SUCCESS')
+                            ->count();
+
+                        // Jika jumlah yang sukses SAMA DENGAN jumlah total yang dibutuhkan, berarti dia siap jalan!
+                        if ($completedDependenciesCount === count($dependencies)) {
+                            // Cek agar tidak menduplikasi eksekusi
+                            $alreadyRun = StepRun::where('workflow_run_id', $this->workflowRunId)
+                                ->where('step_id', $nextStep['id'])
+                                ->exists();
+
+                            if (!$alreadyRun) {
+                                // Masukkan job baru ini ke dalam Batch yang sedang berjalan saat ini
+                                $batch->add(new ExecuteWorkflowStep($nextStep, $this->workflowRunId));
+                            }
+                        }
+                    }
+                }
+            }
         } catch (Exception $e) {
             // Log kesalahan ke database
             $stepRun->update(['logs' => "Error: " . $e->getMessage()]);

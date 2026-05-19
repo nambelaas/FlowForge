@@ -13,9 +13,9 @@ return new class extends Migration
     {
         Schema::create('workflow_versions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('workflow_id')->constrained('workflows')->onDelete('cascade');
+            $table->foreignId('workflows_id')->constrained('workflows')->onDelete('cascade');
             $table->integer('version_number');
-            $table->json('definition')->nullable();
+            $table->json('dag_definition')->nullable();
         });
     }
 
