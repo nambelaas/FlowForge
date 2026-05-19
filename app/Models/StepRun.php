@@ -14,6 +14,7 @@ class StepRun extends Model
         'type',
         'status',
         'logs',
+        'ai_analysis',
         'duration_ms',
         'started_at',
         'completed_at',

@@ -131,11 +131,26 @@ class ExecuteWorkflowStep implements ShouldQueue
             }
         } catch (Exception $e) {
             // Log kesalahan ke database
-            $stepRun->update(['logs' => "Error: " . $e->getMessage()]);
+            $currentAttempt = $this->attempts();
+            $logMessage = "Attempt #{$currentAttempt} Gagal. Error: " . $e->getMessage();
+
+            $existingLogs = $stepRun->logs ? $stepRun->logs . "\n" : "";
+            $stepRun->update(['logs' => $existingLogs . $logMessage]);
 
             // Jika ini adalah percobaan terakhir dan masih gagal, tandai status FAILED
             if ($this->attempts() >= $this->tries) {
-                $stepRun->update(['status' => 'FAILED', 'completed_at' => now()]);
+                try {
+                    $aiService = app()->make(\App\Services\WorkflowAIService::class);
+                    $analysis = $aiService->analyzeFailure($this->step['type'], $logMessage);
+                } catch (\Exception $aiException) {
+                    $analysis = "Gagal memicu analisis AI.";
+                }
+
+                $stepRun->update([
+                    'status' => 'FAILED',
+                    'ai_analysis' => $analysis,
+                    'completed_at' => now()
+                ]);
                 event(new \App\Events\WorkflowStepUpdated($stepRun));
 
                 // Batalkan seluruh rangkaian alur kerja jika ada satu step krusial yang gagal
