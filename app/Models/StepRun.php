@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class StepRun extends Model
 {
@@ -17,4 +18,9 @@ class StepRun extends Model
         'started_at',
         'completed_at',
     ];
+
+    public function workflowRun(): BelongsTo
+    {
+        return $this->belongsTo(WorkflowRun::class, 'workflow_run_id');
+    }
 }

@@ -53,6 +53,7 @@ class ExecuteWorkflowStep implements ShouldQueue
             ['workflow_run_id' => $this->workflowRunId, 'step_id' => $this->step['id']],
             ['status' => 'RUNNING', 'started_at' => now()]
         );
+        event(new \App\Events\WorkflowStepUpdated($stepRun));
 
         $startTime = microtime(true);
 
@@ -90,6 +91,7 @@ class ExecuteWorkflowStep implements ShouldQueue
                 'completed_at' => now(),
                 'duration_ms' => round(($endTime - $startTime) * 1000)
             ]);
+            event(new \App\Events\WorkflowStepUpdated($stepRun));
 
             $batch = $this->batch();
             if ($batch) {
@@ -134,6 +136,7 @@ class ExecuteWorkflowStep implements ShouldQueue
             // Jika ini adalah percobaan terakhir dan masih gagal, tandai status FAILED
             if ($this->attempts() >= $this->tries) {
                 $stepRun->update(['status' => 'FAILED', 'completed_at' => now()]);
+                event(new \App\Events\WorkflowStepUpdated($stepRun));
 
                 // Batalkan seluruh rangkaian alur kerja jika ada satu step krusial yang gagal
                 $this->batch()->cancel();
