@@ -2,6 +2,6 @@
 
 use Illuminate\Support\Facades\Broadcast;
 
-Broadcast::channel('tenant.{tenantId}.workflows', function ($user, $tenantId) {
-    return (int) $user->tenant_id === $tenantId;
+Broadcast::channel('workflows-{$tenantId}', function ($user, $tenantId) {
+    return (string) $user->tenant_id === (string) $tenantId;
 });

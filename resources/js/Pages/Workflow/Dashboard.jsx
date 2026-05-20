@@ -49,56 +49,80 @@ export default function Dashboard({
     }, [workflowsData]);
 
     useEffect(() => {
-        if (window.Echo) {
-            window.Echo.channel("workflows-public").listen(
-                ".step.updated",
-                (e) => {
-                    console.log("Sinyal WebSocket Reverb Masuk:", e);
+        // if (window.Echo) {
+        //     window.Echo.channel("workflows-public").listen(
+        //         ".step.updated",
+        //         (e) => {
+        //             console.log("Sinyal WebSocket Reverb Masuk:", e);
 
-                    if (e.stepRun) {
-                        setCurrentRunId(e.stepRun.workflow_run_id);
+        //             if (e.stepRun) {
+        //                 setCurrentRunId(e.stepRun.workflow_run_id);
 
-                        // Perbarui kotak node secara live
-                        setStepRuns((prevSteps) =>
-                            prevSteps.map((step) =>
-                                step.id === e.stepRun.step_id
-                                    ? {
-                                          ...step,
-                                          status: e.stepRun.status,
-                                          logs: e.stepRun.logs,
-                                          ai_analysis: e.stepRun.ai_analysis,
-                                          duration_ms: e.stepRun.duration_ms,
-                                      }
-                                    : step
-                            )
+        //                 // Perbarui kotak node secara live
+        //                 setStepRuns((prevSteps) =>
+        //                     prevSteps.map((step) =>
+        //                         step.id === e.stepRun.step_id
+        //                             ? {
+        //                                   ...step,
+        //                                   status: e.stepRun.status,
+        //                                   logs: e.stepRun.logs,
+        //                                   ai_analysis: e.stepRun.ai_analysis,
+        //                                   duration_ms: e.stepRun.duration_ms,
+        //                               }
+        //                             : step
+        //                     )
+        //                 );
+        //             }
+
+        //             if (e.latestMetrics) {
+        //                 setMetrics(e.latestMetrics);
+        //             }
+
+        //             if (e.stepRun.status === "RUNNING") {
+        //                 setRunningWorkflowId(
+        //                     e.stepRun.workflow_run?.workflow_id || null
+        //                 );
+        //             }
+        //             if (
+        //                 e.stepRun.status === "SUCCESS" ||
+        //                 e.stepRun.status === "FAILED"
+        //             ) {
+        //                 setRunningWorkflowId(null);
+        //             }
+        //         }
+        //     );
+        // }
+
+        // return () => {
+        //     if (window.Echo) {
+        //         window.Echo.leaveChannel("workflows-public");
+        //     }
+        // };
+        Echo.private(`workflows-${tenantId}`).listen(
+            ".WorkflowStepUpdated",
+            (e) => {
+                console.log("Data step berubah dari websocket: ", e);
+
+                setStepRuns((prevStepRuns) => {
+                    const exists = prevStepRuns.some(
+                        (s) => s.id === e.stepRun.id
+                    );
+
+                    if (exists) {
+                        return prevStepRuns.map((s) =>
+                            s.id === e.stepRun.id ? e.stepRun : s
                         );
+                    } else {
+                        return [...prevStepRuns, e.stepRun];
                     }
-
-                    if (e.latestMetrics) {
-                        setMetrics(e.latestMetrics);
-                    }
-
-                    if (e.stepRun.status === "RUNNING") {
-                        setRunningWorkflowId(
-                            e.stepRun.workflow_run?.workflow_id || null
-                        );
-                    }
-                    if (
-                        e.stepRun.status === "SUCCESS" ||
-                        e.stepRun.status === "FAILED"
-                    ) {
-                        setRunningWorkflowId(null);
-                    }
-                }
-            );
-        }
+                });
+            }
+        );
 
         return () => {
-            if (window.Echo) {
-                window.Echo.leaveChannel("workflows-public");
-            }
+            Echo.leave(`workflows-${tenantId}`);
         };
-    }, []);
+    }, [tenantId]);
 
     const handleTriggerWorkflow = async (id) => {
         setRunningWorkflowId(id);

@@ -20,24 +20,28 @@ class WorkflowStepUpdated
     public $stepRun;
     public $latestMetrics;
 
+    public $tenantId;
+
     /**
      * Create a new event instance.
      */
-    public function __construct(StepRun $stepRun)
-    {
+    public function __construct(
+        StepRun $stepRun,
+        string $tenantId
+    ) {
         $this->stepRun = $stepRun->load('workflowRun');
+        $this->tenantId = $tenantId;
 
-        // HITUNG ULANG METRIK SECARA LIVE UNTUK DISUNTIKKAN KE WEBSOCKET
         $oneDayAgo = Carbon::now()->subDay();
-        $totalRuns24h = WorkflowRun::where('created_at', '>=', $oneDayAgo)->count();
+        $totalRuns24h = WorkflowRun::where('started_at', '>=', $oneDayAgo)->count();
         $activeRuns = WorkflowRun::where('status', 'RUNNING')->count();
-        $successCount = WorkflowRun::where('status', 'SUCCESS')->where('created_at', '>=', $oneDayAgo)->count();
-        $failureCount = WorkflowRun::where('status', 'FAILED')->where('created_at', '>=', $oneDayAgo)->count();
+        $successCount = WorkflowRun::where('status', 'SUCCESS')->where('started_at', '>=', $oneDayAgo)->count();
+        $failureCount = WorkflowRun::where('status', 'FAILED')->where('started_at', '>=', $oneDayAgo)->count();
 
         $successRate = $totalRuns24h > 0 ? round(($successCount / $totalRuns24h) * 100) : 0;
         $failureRate = $totalRuns24h > 0 ? round(($failureCount / $totalRuns24h) * 100) : 0;
 
-        $avgDuration = StepRun::where('status', 'SUCCESS')->where('created_at', '>=', $oneDayAgo)->avg('duration_ms') ?? 0;
+        $avgDuration = StepRun::where('status', 'SUCCESS')->where('started_at', '>=', $oneDayAgo)->avg('duration_ms') ?? 0;
 
         $this->latestMetrics = [
             'active_runs' => $activeRuns,
@@ -47,14 +51,9 @@ class WorkflowStepUpdated
         ];
     }
 
-    /**
-     * Get the channels the event should broadcast on.
-     *
-     * @return array<int, Channel>
-     */
     public function broadcastOn(): array
     {
-        return [new Channel('workflows-public')];
+        return [new Channel('workflows-' . $this->tenantId)];
     }
 
     public function broadcastAs(): string
