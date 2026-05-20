@@ -27,8 +27,6 @@ class ExecuteWorkflowStep implements ShouldQueue
     {
         $this->step = $step;
         $this->workflowRunId = $workflowRunId;
-
-        // Jika di dalam definisi DAG JSON ada custom max_retries, gunakan itu
         $this->tries = $step['retry_logic']['max_retries'] ?? 3;
     }
 
@@ -37,8 +35,7 @@ class ExecuteWorkflowStep implements ShouldQueue
      */
     public function backoff()
     {
-        // Contoh: Percobaan 1 = wait 2s, Percobaan 2 = wait 4s, Percobaan 3 = wait 8s
-        return [2, 4, 8, 16];
+        return [1, 1, 2];
     }
 
     public function handle()
@@ -107,12 +104,29 @@ class ExecuteWorkflowStep implements ShouldQueue
                 foreach ($allSteps as $nextStep) {
                     if (in_array($this->step['id'], $nextStep['depends_on'] ?? [])) {
 
+                        $alreadyRun = StepRun::where('workflow_run_id', $this->workflowRunId)
+                            ->where('step_id', $nextStep['id'])
+                            ->whereIn('status', ['PENDING', 'RUNNING', 'SUCCESS', 'FAILED'])
+                            ->exists();
+
+                        if (!$alreadyRun) {
+                            StepRun::create([
+                                'workflow_run_id' => $this->workflowRunId,
+                                'step_id' => $nextStep['id'],
+                                'status' => 'PENDING',
+                                'logs' => 'Queued...'
+                            ]);
+
+                            dispatch(new ExecuteWorkflowStep($nextStep, $this->workflowRunId));
+                        }
+
                         // Cek apakah SEMUA dependensi dari nextStep ini sudah berstatus SUCCESS di database
                         $dependencies = $nextStep['depends_on'];
                         $completedDependenciesCount = StepRun::where('workflow_run_id', $this->workflowRunId)
                             ->whereIn('step_id', $dependencies)
                             ->where('status', 'SUCCESS')
                             ->count();
+
 
                         // Jika jumlah yang sukses SAMA DENGAN jumlah total yang dibutuhkan, berarti dia siap jalan!
                         if ($completedDependenciesCount === count($dependencies)) {
@@ -138,7 +152,7 @@ class ExecuteWorkflowStep implements ShouldQueue
             $stepRun->update(['logs' => $existingLogs . $logMessage]);
 
             // Jika ini adalah percobaan terakhir dan masih gagal, tandai status FAILED
-            if ($this->attempts() >= $this->tries) {
+            if ($currentAttempt >= $this->tries) {
                 try {
                     $aiService = app()->make(\App\Services\WorkflowAIService::class);
                     $analysis = $aiService->analyzeFailure($this->step['type'], $logMessage);
