@@ -86,10 +86,10 @@ class WorkflowExecutionController extends Controller
                 'logs' => 'Execution terminated forcefully by the user via Dashboard Control.'
             ]);
 
-        $latestStepRun = StepRun::where('workflow_run_id', $activeRun->id)->latest()->first();
+        $latestStepRun = StepRun::where('workflow_run_id', $activeRun->id)->orderBy('started_at', 'desc')->get();
 
-        if ($latestStepRun) {
-            event(new \App\Events\WorkflowStepUpdated($latestStepRun));
+        foreach ($latestStepRun as $stepRun) {
+            event(new \App\Events\WorkflowStepUpdated($stepRun, $activeRun->tenant_id));
         }
 
         return response()->json([

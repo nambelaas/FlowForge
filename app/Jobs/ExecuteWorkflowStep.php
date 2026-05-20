@@ -23,10 +23,13 @@ class ExecuteWorkflowStep implements ShouldQueue
     protected $step;
     protected $workflowRunId;
 
-    public function __construct(array $step, $workflowRunId)
+    protected $tenantId;
+
+    public function __construct(array $step, $workflowRunId, string $tenantId)
     {
         $this->step = $step;
         $this->workflowRunId = $workflowRunId;
+        $this->tenantId = $tenantId;
         $this->tries = $step['retry_logic']['max_retries'] ?? 3;
     }
 
@@ -50,7 +53,7 @@ class ExecuteWorkflowStep implements ShouldQueue
             ['workflow_run_id' => $this->workflowRunId, 'step_id' => $this->step['id']],
             ['status' => 'RUNNING', 'started_at' => now()]
         );
-        event(new \App\Events\WorkflowStepUpdated($stepRun));
+        event(new \App\Events\WorkflowStepUpdated($stepRun, $this->tenantId));
 
         $startTime = microtime(true);
 
@@ -88,7 +91,7 @@ class ExecuteWorkflowStep implements ShouldQueue
                 'completed_at' => now(),
                 'duration_ms' => round(($endTime - $startTime) * 1000)
             ]);
-            event(new \App\Events\WorkflowStepUpdated($stepRun));
+            event(new \App\Events\WorkflowStepUpdated($stepRun, $this->tenantId));
 
             $batch = $this->batch();
             if ($batch) {
@@ -117,7 +120,7 @@ class ExecuteWorkflowStep implements ShouldQueue
                                 'logs' => 'Queued...'
                             ]);
 
-                            dispatch(new ExecuteWorkflowStep($nextStep, $this->workflowRunId));
+                            dispatch(new ExecuteWorkflowStep($nextStep, $this->workflowRunId, $this->tenantId));
                         }
 
                         // Cek apakah SEMUA dependensi dari nextStep ini sudah berstatus SUCCESS di database
@@ -137,7 +140,7 @@ class ExecuteWorkflowStep implements ShouldQueue
 
                             if (!$alreadyRun) {
                                 // Masukkan job baru ini ke dalam Batch yang sedang berjalan saat ini
-                                $batch->add(new ExecuteWorkflowStep($nextStep, $this->workflowRunId));
+                                $batch->add(new ExecuteWorkflowStep($nextStep, $this->workflowRunId, $this->tenantId));
                             }
                         }
                     }
@@ -165,7 +168,7 @@ class ExecuteWorkflowStep implements ShouldQueue
                     'ai_analysis' => $analysis,
                     'completed_at' => now()
                 ]);
-                event(new \App\Events\WorkflowStepUpdated($stepRun));
+                event(new \App\Events\WorkflowStepUpdated($stepRun, $this->tenantId));
 
                 // Batalkan seluruh rangkaian alur kerja jika ada satu step krusial yang gagal
                 $this->batch()->cancel();

@@ -98,7 +98,7 @@ class WorkflowEngine
         $initialJobs = [];
         foreach ($sortedSteps as $step) {
             if (empty($step['depends_on'])) {
-                $initialJobs[] = new ExecuteWorkflowStep($step, $workflowRun->id);
+                $initialJobs[] = new ExecuteWorkflowStep($step, $workflowRun->id, $tenantId);
             }
         }
 

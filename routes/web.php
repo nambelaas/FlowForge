@@ -30,6 +30,6 @@ require __DIR__ . '/auth.php';
 Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
-    Route::post('/workflows/{id}/trigger', [WorkflowExecutionController::class, 'trigger'])->middleware(['throttle:5,1']);
+    
     Route::post('/workflows/{id}/stop', [WorkflowExecutionController::class, 'stopRun']);
 });

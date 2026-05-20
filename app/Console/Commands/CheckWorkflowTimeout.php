@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\StepRun;
 use App\Models\WorkflowRun;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Bus;
@@ -28,29 +29,39 @@ class CheckWorkflowTimeout extends Command
      */
     public function handle()
     {
-        $timeoutMinutes = 30;
+        $timeoutMinutes = 15;
         $threshold = now()->subMinutes($timeoutMinutes);
 
         $expiredRuns = WorkflowRun::where('status', 'RUNNING')
             ->where('started_at', '<', $threshold)
             ->get();
 
-        foreach ($expiredRuns as $run) {
-            if ($run->batch_id) {
-                $batch = Bus::findBatch($run->batch_id);
-                if ($batch) {
-                    $batch->cancel();
-                }
-            }
+        if ($expiredRuns->isEmpty()) {
+            $this->info('Aman! Tidak ada alur kerja yang menggantung.');
+            return 0;
+        }
 
-            DB::table('workflow_run')->where('id', $run->id)->update([
+        foreach ($expiredRuns as $run) {
+            $run->update([
                 'status' => 'FAILED',
                 'completed_at' => now()
             ]);
 
-            $this->info("Workflow Run ID {$run->id} berhasil dihentikan karena Global Timeout.");
+            StepRun::where('workflow_run_id', $run->id)
+                ->whereIn('status', ['PENDING', 'RUNNING'])
+                ->update([
+                    'status' => 'FAILED',
+                    'logs' => 'Execution terminated automatically by System Timeout Guard.'
+                ]);
+
+            $latestStep = StepRun::where('workflow_run_id', $run->id)->orderBy('started_at', 'desc')->first();
+            if ($latestStep) {
+                event(new \App\Events\WorkflowStepUpdated($latestStep, $run->tenant_id));
+            }
+
+            $this->warn("Workflow Run ID #{$run->id} berhasil dimatikan karena timeout.");
         }
 
-        return Command::SUCCESS;
+        return 0;
     }
 }

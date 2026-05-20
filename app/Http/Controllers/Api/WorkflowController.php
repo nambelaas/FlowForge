@@ -21,7 +21,16 @@ class WorkflowController extends Controller
             $query->where('is_active', $request->boolean('is_active'));
         }
 
-        return response()->json($query->paginate($request->get('per_page', 15)));
+        if ($request->has('search') && $request->search != '') {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        $pageSize = $request->get('per_page', 5);
+        $currentPage = $request->get('current_page', 1);
+
+        $data = $query->simplePaginate($pageSize, ['*'], 'page', $currentPage);
+
+        return response()->json($data);
     }
 
     public function store(Request $request)
