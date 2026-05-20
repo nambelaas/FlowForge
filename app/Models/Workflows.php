@@ -33,7 +33,6 @@ class Workflows extends Model
 
     public function latestVersion(): HasOne
     {
-        // Mengambil versi yang memiliki nomor version_number paling besar
         return $this->hasOne(WorkflowVersion::class)->latestOfMany('version_number');
     }
 }

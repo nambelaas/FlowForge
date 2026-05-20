@@ -14,7 +14,6 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::middleware('role:admin,editor')->group(function () {
         Route::post('/workflows', [WorkflowController::class, 'store']);
         Route::put('/workflows/{workflow}', [WorkflowController::class, 'update']);
-        Route::post('/workflows/{id}/trigger', [WorkflowExecutionController::class, 'trigger']);
     });
 
     // Peran Viewer, Editor, dan Admin semuanya bisa melihat daftar alur kerja
