@@ -17,16 +17,36 @@ import {
 } from "lucide-react";
 
 export default function Dashboard({
-    initialWorkflows,
+    workflowsData,
     initialStepRuns,
     tenantId,
     healthMetrics,
 }) {
-    const [workflows] = useState(initialWorkflows);
+    const [workflows, setWorkflows] = useState(workflowsData.data);
     const [stepRuns, setStepRuns] = useState(initialStepRuns);
     const [metrics, setMetrics] = useState(healthMetrics);
     const [runningWorkflowId, setRunningWorkflowId] = useState(null);
     const [currentRunId, setCurrentRunId] = useState(null);
+
+    const [searchQuery, setSearchQuery] = useState("");
+
+    const handleSearch = (e) => {
+        const value = e.target.value;
+        setSearchQuery(value);
+
+        router.get(
+            "/dashboard",
+            { search: value },
+            {
+                preserveState: true,
+                replace: true,
+            }
+        );
+    };
+
+    useEffect(() => {
+        setWorkflows(workflowsData.data);
+    }, [workflowsData]);
 
     useEffect(() => {
         if (window.Echo) {
@@ -130,7 +150,7 @@ export default function Dashboard({
         <div className="min-h-screen bg-slate-950 text-slate-50 p-8">
             <Head title="FlowForge Dashboard" />
 
-            {/* Header & Metrics Panel tetap sama (menggunakan data {metrics.*}) */}
+            {/* Header & Metrics Panel */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800 pb-6 mb-6 gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
@@ -213,82 +233,147 @@ export default function Dashboard({
 
             {/* Grid Monitor */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Monitor Nodes (Kiri) */}
                 <div className="lg:col-span-1 space-y-6">
                     <div className="bg-slate-900 rounded-xl border border-slate-800 p-6">
-                        <h2 className="text-xl font-semibold mb-4 text-slate-200">
-                            Workflows Controller
-                        </h2>
-                        {workflows.map((wf) => (
-                            <div
-                                key={wf.id}
-                                className="p-4 bg-slate-950 rounded-lg border border-slate-800 space-y-3"
-                            >
-                                <div>
-                                    <h3 className="font-bold text-slate-100">
-                                        {wf.name}
-                                    </h3>
-                                    <p className="text-xs text-slate-400 mt-1">
-                                        {wf.description}
-                                    </p>
-                                </div>
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-semibold text-slate-200">
+                                Workflows
+                            </h2>
+                        </div>
 
-                                {/* AKSI DINAMIS BUTTONS */}
-                                <div className="flex flex-col gap-2">
-                                    {runningWorkflowId === wf.id ? (
-                                        // Jika sedang berjalan lama, tampilkan BUTTON STOP PACKSA
-                                        <button
-                                            onClick={() =>
-                                                handleStopWorkflow(wf.id)
-                                            }
-                                            className="w-full flex items-center justify-center gap-2 font-medium py-2.5 px-4 rounded-md bg-red-600 text-white hover:bg-red-500 transition-all text-sm"
-                                        >
-                                            <Square className="w-4 h-4 fill-current" />{" "}
-                                            Stop Process (Timeout Emergency)
-                                        </button>
-                                    ) : (
-                                        // Tombol Trigger Standar / Kirim Ulang
-                                        <button
-                                            onClick={() =>
-                                                handleTriggerWorkflow(wf.id)
-                                            }
-                                            disabled={
-                                                runningWorkflowId !== null
-                                            }
-                                            className={`w-full flex items-center justify-center gap-2 font-medium py-2.5 px-4 rounded-md transition-all text-sm
+                        {/* INPUT FILTER PENCARIAN */}
+                        <div className="mb-4">
+                            <input
+                                type="text"
+                                placeholder="🔍 Search Workflows..."
+                                value={searchQuery}
+                                onChange={handleSearch}
+                                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-lime-500 transition-all"
+                            />
+                        </div>
+
+                        {/* LIST WORKFLOWS */}
+                        <div className="space-y-4">
+                            {workflows.map((wf) => (
+                                <div
+                                    key={wf.id}
+                                    className="p-4 bg-slate-950 rounded-lg border border-slate-800 space-y-3"
+                                >
+                                    <div>
+                                        <h3 className="font-bold text-slate-100">
+                                            {wf.name}
+                                        </h3>
+                                        <p className="text-xs text-slate-400 mt-1">
+                                            {wf.description}
+                                        </p>
+                                    </div>
+
+                                    {/* AKSI DINAMIS BUTTONS */}
+                                    <div className="flex flex-col gap-2">
+                                        {runningWorkflowId === wf.id ? (
+                                            // Jika sedang berjalan lama, tampilkan BUTTON STOP PACKSA
+                                            <button
+                                                onClick={() =>
+                                                    handleStopWorkflow(wf.id)
+                                                }
+                                                className="w-full flex items-center justify-center gap-2 font-medium py-2.5 px-4 rounded-md bg-red-600 text-white hover:bg-red-500 transition-all text-sm"
+                                            >
+                                                <Square className="w-4 h-4 fill-current" />{" "}
+                                                Stop Process (Timeout Emergency)
+                                            </button>
+                                        ) : (
+                                            // Tombol Trigger Standar / Kirim Ulang
+                                            <button
+                                                onClick={() =>
+                                                    handleTriggerWorkflow(wf.id)
+                                                }
+                                                disabled={
+                                                    runningWorkflowId !== null
+                                                }
+                                                className={`w-full flex items-center justify-center gap-2 font-medium py-2.5 px-4 rounded-md transition-all text-sm
                         ${
                             runningWorkflowId !== null
                                 ? "bg-slate-800 text-slate-500 cursor-not-allowed"
                                 : "bg-lime-400 text-slate-950 hover:bg-lime-300"
                         }`}
-                                        >
-                                            {stepRuns.some(
-                                                (s) =>
-                                                    s.status === "FAILED" &&
-                                                    (s.workflow_id === wf.id ||
-                                                        s.workflow_run
-                                                            ?.workflow_id ===
-                                                            wf.id)
-                                            ) ? (
-                                                <>
-                                                    <RotateCcw className="w-4 h-4" />{" "}
-                                                    Kirim Ulang (Retry
-                                                    Execution)
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Play className="w-4 h-4 fill-current" />{" "}
-                                                    Trigger Execution
-                                                </>
-                                            )}
-                                        </button>
-                                    )}
+                                            >
+                                                {stepRuns.some(
+                                                    (s) =>
+                                                        s.status === "FAILED" &&
+                                                        (s.workflow_id ===
+                                                            wf.id ||
+                                                            s.workflow_run
+                                                                ?.workflow_id ===
+                                                                wf.id)
+                                                ) ? (
+                                                    <>
+                                                        <RotateCcw className="w-4 h-4" />{" "}
+                                                        Kirim Ulang (Retry
+                                                        Execution)
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Play className="w-4 h-4 fill-current" />{" "}
+                                                        Trigger Execution
+                                                    </>
+                                                )}
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
+                            ))}
+                        </div>
+
+                        {/* NOMOR & TOMBOL NAVIGASI PAGINATION */}
+                        <div className="flex justify-between items-center mt-6 pt-4 border-t border-slate-800 text-xs">
+                            <span className="text-slate-400">
+                                Page {workflowsData.current_page} of{" "}
+                                {workflowsData.last_page}
+                            </span>
+                            <div className="flex gap-2">
+                                {/* Tombol Previous */}
+                                <button
+                                    disabled={!workflowsData.prev_page_url}
+                                    onClick={() =>
+                                        router.get(
+                                            workflowsData.prev_page_url,
+                                            {},
+                                            { preserveState: true }
+                                        )
+                                    }
+                                    className={`px-3 py-1.5 rounded border border-slate-800 font-medium ${
+                                        !workflowsData.prev_page_url
+                                            ? "text-slate-600 cursor-not-allowed"
+                                            : "bg-slate-950 hover:bg-slate-800"
+                                    }`}
+                                >
+                                    Prev
+                                </button>
+                                {/* Tombol Next */}
+                                <button
+                                    disabled={!workflowsData.next_page_url}
+                                    onClick={() =>
+                                        router.get(
+                                            workflowsData.next_page_url,
+                                            {},
+                                            { preserveState: true }
+                                        )
+                                    }
+                                    className={`px-3 py-1.5 rounded border border-slate-800 font-medium ${
+                                        !workflowsData.next_page_url
+                                            ? "text-slate-600 cursor-not-allowed"
+                                            : "bg-slate-950 hover:bg-slate-800"
+                                    }`}
+                                >
+                                    Next
+                                </button>
                             </div>
-                        ))}
+                        </div>
                     </div>
                 </div>
 
-                {/* Monitor Nodes (Kanan) tetap sama */}
+                {/* Monitor Nodes (Kanan) */}
                 <div className="lg:col-span-2 space-y-6">
                     <div className="bg-slate-900 rounded-xl border border-slate-800 p-6">
                         <h2 className="text-xl font-semibold text-slate-200 flex items-center gap-2 mb-6">

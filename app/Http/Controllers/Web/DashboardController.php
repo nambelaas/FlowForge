@@ -7,27 +7,30 @@ use App\Models\StepRun;
 use App\Models\WorkflowRun;
 use App\Models\Workflows;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $user = Auth::user();
+        $tenantId = Auth::user()->tenant_id;
 
-        $workflows = Workflows::all();
+        $workflowQuery = Workflows::where('tenant_id', $tenantId);
+
+        if ($request->has('search') && $request->search != '') {
+            $workflowQuery->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        $paginatedWorkflows = $workflowQuery->paginate(3)->withQueryString();
+
         $latestRun = WorkflowRun::orderBy('started_at', 'desc')->first();
 
-        $stepRuns = $latestRun
-            ? StepRun::where('workflow_run_id', $latestRun->id)->with('workflowRun')->get()
-            : [];
-
+        $stepRuns = $latestRun ? StepRun::where('workflow_run_id', $latestRun->id)->get() : [];
         $oneDayAgo = Carbon::now()->subDay();
 
         $totalRuns24h = WorkflowRun::where('started_at', '>=', $oneDayAgo)->count();
-
-        $activeRuns = WorkflowRun::where('status', 'RUNNING')->count();
 
         $successCount = WorkflowRun::where('status', 'SUCCESS')
             ->where('started_at', '>=', $oneDayAgo)
@@ -45,17 +48,17 @@ class DashboardController extends Controller
             ->avg('duration_ms') ?? 0;
 
         $healthMetrics = [
-            'active_runs' => $activeRuns,
-            'success_rate' => $successRate . '%',
-            'failure_rate' => $failureRate . '%',
-            'avg_execution_time' => round($avgDuration) . ' ms'
+            'active_runs' => WorkflowRun::where('status', 'RUNNING')->count(),
+            'success_rate' => $successRate,
+            'failure_rate' => $failureRate,
+            'avg_execution_time' => $avgDuration,
         ];
 
-        return Inertia::render('Workflow/Dashboard', [
-            'initialWorkflows' => $workflows,
+        return inertia('Workflow/Dashboard', [
+            'workflowsData' => $paginatedWorkflows,
             'initialStepRuns' => $stepRuns,
-            'tenantId' => $user->tenant_id ?? 'No Active Tenant',
-            'healthMetrics' => $healthMetrics // <--- Kirim ke React
+            'tenantId' => $tenantId,
+            'healthMetrics' => $healthMetrics
         ]);
     }
 }
