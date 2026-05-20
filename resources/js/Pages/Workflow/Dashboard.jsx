@@ -22,7 +22,26 @@ export default function Dashboard({
     tenantId,
     healthMetrics,
 }) {
-    const [workflows, setWorkflows] = useState(workflowsData.data);
+    const [workflows, setWorkflows] = useState(() => {
+        const cachedData = localStorage.getItem(`cached_workflows_${tenantId}`);
+        const cachedTime = localStorage.getItem(
+            `cached_workflows_time_${tenantId}`
+        );
+        const FIVE_MINUTES = 5 * 60 * 1000;
+
+        if (cachedData && cachedTime) {
+            const isExpired = Date.now() - parseInt(cachedTime) > FIVE_MINUTES;
+            if (!isExpired) {
+                console.log(
+                    "⚡ [Cache Hit] Memuat daftar workflow dari localStorage"
+                );
+                return JSON.parse(cachedData);
+            }
+        }
+
+        console.log("🌐 [Cache Miss] Memuat daftar workflow dari server");
+        return workflowsData.data;
+    });
     const [stepRuns, setStepRuns] = useState(initialStepRuns);
     const [metrics, setMetrics] = useState(healthMetrics);
     const [runningWorkflowId, setRunningWorkflowId] = useState(null);
@@ -45,8 +64,18 @@ export default function Dashboard({
     };
 
     useEffect(() => {
-        setWorkflows(workflowsData.data);
-    }, [workflowsData]);
+        if (workflowsData && workflowsData.data) {
+            localStorage.setItem(
+                `cached_workflows_${tenantId}`,
+                JSON.stringify(workflowsData.data)
+            );
+            localStorage.setItem(
+                `cached_workflows_time_${tenantId}`,
+                Date.now().toString()
+            );
+            setWorkflows(workflowsData.data);
+        }
+    }, [workflowsData, tenantId]);
 
     useEffect(() => {
         // if (window.Echo) {
