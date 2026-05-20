@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Tymon\JWTAuth\Facades\JWTAuth;
 
 class AuthController extends Controller
 {
@@ -33,40 +34,38 @@ class AuthController extends Controller
             'role' => $validated['role'],
         ]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        // $token = $user->createToken('auth_token')->plainTextToken;
+        $token = JWTAuth::fromUser($user);
 
         return response()->json([
+            'status' => 'success',
             'message' => 'User & Tenant registered successfully',
             'access_token' => $token,
-            'token_type' => 'Bearer',
-        ], 201);
+            'token_type' => 'bearer',
+            'expires_in' => JWTAuth::factory()->getTTL() * 60
+        ]);
     }
 
     public function login(Request $request)
     {
-        $validated = $request->validate([
-            'email' => 'required|string|email',
-            'password' => 'required|string',
-        ]);
+        $credentials = $request->only('email', 'password');
 
-        if (!Auth::attempt($validated)) {
-            return response()->json([
-                'message' => 'Email atau password salah.'
-            ], 401);
+        // Mencoba memvalidasi user dan mengeluarkan string token JWT
+        if (! $token = auth()->guard('api')->attempt($credentials)) {
+            return response()->json(['error' => 'Email atau password salah.'], 401);
         }
 
-        $user = User::where('email', $validated['email'])->firstOrFail();
-        $token = $user->createToken('auth_token')->plainTextToken;
-
         return response()->json([
-            'message' => 'Login success',
+            'status' => 'success',
+            'message' => 'Login successful',
             'access_token' => $token,
-            'token_type' => 'Bearer',
-            'user' => [
-                'name' => $user->name,
-                'role' => $user->role,
-                'tenant_id' => $user->tenant_id
-            ]
+            'token_type' => 'bearer',
+            'expires_in' => JWTAuth::factory()->getTTL() * 60
         ]);
+    }
+
+    public function me()
+    {
+        return response()->json(auth()->guard('api')->user());
     }
 }
