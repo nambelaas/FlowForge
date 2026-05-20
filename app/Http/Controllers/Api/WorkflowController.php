@@ -3,32 +3,35 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\StepRun;
-use App\Models\WorkflowRun;
 use App\Models\Workflows;
 use App\Models\WorkflowVersion;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class WorkflowController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Workflows::query();
+        $tenantId = Auth::user()->tenant_id;
 
-        if ($request->has('is_active')) {
-            $query->where('is_active', $request->boolean('is_active'));
-        }
+        $data = Cache::driver('redis')->remember('workflows_list_' . $tenantId, now()->addMinutes(5), function () use ($request) {
+            $query = Workflows::query();
 
-        if ($request->has('search') && $request->search != '') {
-            $query->where('name', 'like', '%' . $request->search . '%');
-        }
+            if ($request->has('is_active')) {
+                $query->where('is_active', $request->boolean('is_active'));
+            }
 
-        $pageSize = $request->get('per_page', 5);
-        $currentPage = $request->get('current_page', 1);
+            if ($request->has('search') && $request->search != '') {
+                $query->where('name', 'like', '%' . $request->search . '%');
+            }
 
-        $data = $query->simplePaginate($pageSize, ['*'], 'page', $currentPage);
+            $pageSize = $request->get('per_page', 5);
+            $currentPage = $request->get('current_page', 1);
+
+            return $query->simplePaginate($pageSize, ['*'], 'page', $currentPage);
+        });
 
         return response()->json($data);
     }
