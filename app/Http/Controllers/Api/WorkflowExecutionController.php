@@ -11,6 +11,7 @@ use App\Services\WorkflowEngine;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Log;
 
 class WorkflowExecutionController extends Controller
 {
@@ -45,8 +46,7 @@ class WorkflowExecutionController extends Controller
                 'message' => 'Workflow execution dispatched successfully',
                 'workflow_id' => $workflow->id,
                 'status' => 'RUNNING'
-            ], 202); // 202 Accepted artinya proses sudah masuk antrean background
-
+            ], 202);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Gagal memvalidasi struktur alur kerja.',

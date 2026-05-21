@@ -7,13 +7,13 @@ use App\Models\WorkflowRun;
 use Carbon\Carbon;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
-class WorkflowStepUpdated
+class WorkflowStepUpdated implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -27,8 +27,12 @@ class WorkflowStepUpdated
      */
     public function __construct(
         StepRun $stepRun,
-        string $tenantId
+        ?string $tenantId
     ) {
+        $log = Log::channel('workflow');
+
+        $log->info(pathinfo(__FILE__, PATHINFO_FILENAME) . ', Line: ' . __LINE__ . ' Send event for step run update');
+
         $this->stepRun = $stepRun->load('workflowRun');
         $this->tenantId = $tenantId;
 
@@ -53,7 +57,7 @@ class WorkflowStepUpdated
 
     public function broadcastOn(): array
     {
-        return [new Channel('workflows-' . $this->tenantId)];
+        return [new PrivateChannel('workflows-' . $this->tenantId)];
     }
 
     public function broadcastAs(): string

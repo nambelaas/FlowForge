@@ -78,69 +78,24 @@ export default function Dashboard({
     }, [workflowsData, tenantId]);
 
     useEffect(() => {
-        // if (window.Echo) {
-        //     window.Echo.channel("workflows-public").listen(
-        //         ".step.updated",
-        //         (e) => {
-        //             console.log("Sinyal WebSocket Reverb Masuk:", e);
-
-        //             if (e.stepRun) {
-        //                 setCurrentRunId(e.stepRun.workflow_run_id);
-
-        //                 // Perbarui kotak node secara live
-        //                 setStepRuns((prevSteps) =>
-        //                     prevSteps.map((step) =>
-        //                         step.id === e.stepRun.step_id
-        //                             ? {
-        //                                   ...step,
-        //                                   status: e.stepRun.status,
-        //                                   logs: e.stepRun.logs,
-        //                                   ai_analysis: e.stepRun.ai_analysis,
-        //                                   duration_ms: e.stepRun.duration_ms,
-        //                               }
-        //                             : step
-        //                     )
-        //                 );
-        //             }
-
-        //             if (e.latestMetrics) {
-        //                 setMetrics(e.latestMetrics);
-        //             }
-
-        //             if (e.stepRun.status === "RUNNING") {
-        //                 setRunningWorkflowId(
-        //                     e.stepRun.workflow_run?.workflow_id || null
-        //                 );
-        //             }
-        //             if (
-        //                 e.stepRun.status === "SUCCESS" ||
-        //                 e.stepRun.status === "FAILED"
-        //             ) {
-        //                 setRunningWorkflowId(null);
-        //             }
-        //         }
-        //     );
-        // }
-
-        // return () => {
-        //     if (window.Echo) {
-        //         window.Echo.leaveChannel("workflows-public");
-        //     }
-        // };
-        Echo.private(`workflows-${tenantId}`).listen(
+        if (!tenantId) return;
+        Echo.channel(`workflows-${tenantId}`).listen(
             ".WorkflowStepUpdated",
             (e) => {
                 console.log("Data step berubah dari websocket: ", e);
 
                 setStepRuns((prevStepRuns) => {
-                    const exists = prevStepRuns.some(
-                        (s) => s.id === e.stepRun.id
+                    const existingIndex = prevStepRuns.findIndex(
+                        (s) => Number(s.step_id) === Number(e.stepRun.step_id)
                     );
 
-                    if (exists) {
-                        return prevStepRuns.map((s) =>
-                            s.id === e.stepRun.id ? e.stepRun : s
-                        );
+                    if (existingIndex !== -1) {
+                        const updatedStepRuns = [...prevStepRuns];
+                        updatedStepRuns[existingIndex] = {
+                            ...updatedStepRuns[existingIndex],
+                            ...e.stepRun,
+                        };
+                        return updatedStepRuns;
                     } else {
                         return [...prevStepRuns, e.stepRun];
                     }
@@ -156,25 +111,21 @@ export default function Dashboard({
     const handleTriggerWorkflow = async (id) => {
         setRunningWorkflowId(id);
 
-        setStepRuns((prev) =>
-            prev.map((s) => ({
-                ...s,
-                status: "PENDING",
-                ai_analysis: null,
-                logs: "Waiting in Queue...",
-            }))
-        );
-
-        try {
-            const response = await axios.post(`/workflows/${id}/trigger`);
-            console.log(response);
-            if (response.data && response.data.workflow_run_id) {
-                setCurrentRunId(response.data.workflow_run_id);
-            }
-        } catch (error) {
-            console.error("Gagal memicu alur kerja:", error);
-            setRunningWorkflowId(null);
-        }
+        axios
+            .post(`/workflows/${id}/trigger`)
+            .then((response) => {
+                router.reload({
+                    only: ["initialStepRuns", "workflowsData"],
+                    onSuccess: (page) => {
+                        setStepRuns(page.props.initialStepRuns);
+                        setRunningWorkflowId(null);
+                    },
+                });
+            })
+            .catch((error) => {
+                console.error("Gagal memicu alur kerja:", error);
+                setRunningWorkflowId(null);
+            });
     };
 
     const handleStopWorkflow = async (id) => {

@@ -47,6 +47,7 @@ class WorkflowController extends Controller
             'dag_definition.steps.*.type' => 'required|in:HTTP,SCRIPT,DELAY,CONDITIONAL',
             'dag_definition.steps.*.action' => 'required_if:dag_definition.steps.*.type,HTTP,SCRIPT|string',
             'dag_definition.steps.*.duration' => 'required_if:dag_definition.steps.*.type,DELAY|integer|min:1',
+            'dag_definition.steps.*.depends_on' => 'array|nullable',
             'dag_definition.steps.*.retry_logic' => 'array|nullable',
             'dag_definition.steps.*.retry_logic.max_retries' => 'required_with:dag_definition.steps.*.retry_logic|integer|min:0'
         ]);

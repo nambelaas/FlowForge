@@ -7,6 +7,7 @@ use App\Models\StepRun;
 use App\Models\WorkflowRun;
 use Exception;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class WorkflowEngine
@@ -72,6 +73,10 @@ class WorkflowEngine
      */
     public function execute($workflowVersion, $tenantId)
     {
+        $log = Log::channel('workflow');
+
+        $log->info(pathinfo(__FILE__, PATHINFO_FILENAME) . ', Line: ' . __LINE__ . " starting execution for workflow_version_id: {$workflowVersion->id} by tenant_id: {$tenantId}");
+
         $steps = $workflowVersion->dag_definition['steps'];
         $sortedSteps = $this->validateAndSort($steps);
 
@@ -94,6 +99,7 @@ class WorkflowEngine
             ]);
         }
 
+        $log->info(pathinfo(__FILE__, PATHINFO_FILENAME) . ', Line: ' . __LINE__ . ' ' . json_encode($sortedSteps));
         // 3. Ambil semua step yang tidak punya dependensi (In-Degree = 0)
         $initialJobs = [];
         foreach ($sortedSteps as $step) {
@@ -101,6 +107,8 @@ class WorkflowEngine
                 $initialJobs[] = new ExecuteWorkflowStep($step, $workflowRun->id, $tenantId);
             }
         }
+
+        $log->info(pathinfo(__FILE__, PATHINFO_FILENAME) . ', Line: ' . __LINE__ . ' initial jobs for workflow_run_id: ' . $workflowRun->id . ' ' . json_encode($initialJobs));
 
         // 4. Jika tidak ada step awal yang valid, gagalkan langsung
         if (empty($initialJobs)) {
@@ -116,6 +124,8 @@ class WorkflowEngine
             })
             ->catch(function ($batch, Throwable $e) use ($workflowRun) {
                 // Terjadi kegagalan di salah satu step atau dibatalkan karena timeout
+                $log = Log::channel('workflow');
+                $log->error('Workflow execution failed for workflow_run_id: ' . $workflowRun->id . '. error:' . $e->getMessage());
                 $workflowRun->update(['status' => 'FAILED', 'completed_at' => now()]);
             })
             ->dispatch();
