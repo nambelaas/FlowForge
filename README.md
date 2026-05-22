@@ -64,9 +64,9 @@ Jika anda lebih memilih untuk menjalankan aplikasi ini secara manual tanpa mengg
    php artisan reverb:start
    ```
 6. **Jalankan Server Aplikasi**
-   Jalankan server Laravel untuk mengakses dashboard:
+   Jalankan server Laravel & Vite untuk mengakses dashboard:
    ```
-   php artisan serve
+   php artisan serve & npm run dev (di terminal terpisah)
    ```
 7. **Akses Aplikasi**
    Buka browser anda dan akses Dasbor FlowForge melalui alamat:
@@ -89,15 +89,22 @@ Aplikasi ini juga dikemas menggunakan Docker agar dapat dijalankan secara instan
    cp .env.example .env
    ```
 
+3. **Sesuaikan Konfigurasi env**
+   Pastikan variabel `DB_HOST`, `REVERB_HOST`, dan `VITE_REVERB_HOST` di file `.env` sudah disesuaikan untuk menunjuk ke nama layanan Docker yang benar (biasanya `db` untuk database dan `reverb` untuk server WebSocket):
+   ```
+   DB_HOST=db
+   REVERB_HOST=reverb
+   VITE_REVERB_HOST=reverb
+   ```
 
-2. **Build dan Nyalakan Kontainer**
+4. **Build dan Nyalakan Kontainer**
     Jalankan perintah ini untuk membangun image dan menyalakan seluruh stack (Aplikasi, Database, Queue Worker, dan Reverb) di background:
 
     ```
     docker-compose up -d --build
     ```
 
-3. **Jalankan Migrasi & Database Seeder**
+5. **Jalankan Migrasi & Database Seeder**
     Isi database dengan struktur tabel untuk keperluan pengujian awal:
     ```
     docker-compose exec app php artisan migrate --seed
