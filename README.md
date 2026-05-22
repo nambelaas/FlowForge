@@ -1,59 +1,142 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# FlowForge: Real-Time Multi-Tenant Workflow Orchestration Engine
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+FlowForge adalah core engine orkestrasi alur kerja (*workflow engine*) berbasis **Directed Acyclic Graph (DAG)** yang dirancang untuk mengompilasi, memvalidasi, dan mengeksekusi serangkaian tugas berdependensi secara asinkronus dan aman. Dilengkapi dengan arsitektur *multi-tenancy* yang terisolasi ketat serta dasbor pemantauan *real-time*.
 
-## About Laravel
+Proyek ini dibangun sebagai solusi pemenuhan tantangan teknis (*technical test*) untuk posisi Software Engineer dengan fokus pada ketahanan performa *backend*, skalabilitas antrean (*queue scalability*), dan interaktivitas data.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 🚀 Fitur Utama (Core MVP)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+1. **DAG-Based Execution Engine**: Kemampuan mengeksekusi *nodes* (langkah tugas) sesuai dengan urutan topologi dependensi. Sistem secara otomatis mendeteksi langkah yang siap jalan (*ready to dispatch*) setelah dependensinya sukses (`SUCCESS`).
+2. **Race-Condition & Deadlock Safety**: Menggunakan mekanisme **Pagar Database** (`affected rows validation` melalui kondisi status `PENDING`) untuk menjamin tidak ada instruksi ganda atau eksekusi paralel yang tumpang tindih saat dievaluasi oleh *multiple queue workers*.
+3. **Real-Time Monitoring Dashboard**: Dasbor interaktif menggunakan **Inertia.js + React** yang terintegrasi penuh dengan **Laravel Reverb (WebSockets)** untuk menyiarkan status eksekusi (`PENDING` -> `RUNNING` -> `SUCCESS`/`FAILED`) dan log sistem secara instan tanpa membebani server dengan HTTP polling berkala.
+4. **Intelligent Failure Analysis**: Mengintegrasikan **Google Gemini AI API** untuk melakukan analisis kegagalan otomatis secara cerdas dan memberikan saran perbaikan langsung pada komponen tugas yang berstatus `FAILED`.
+5. **Robust Multi-Tenancy**: Isolasi data yang ketat antar penyewa (*tenant*) di level basis data dan saluran siaran (*broadcast channels isolation*) menggunakan identitas `tenant_id`.
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+## 🛠️ Tech Stack
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+* **Backend Framework**: Laravel 12 (PHP 8.2+)
+* **Frontend Stack**: React, Inertia.js, Tailwind CSS, Lucide React
+* **Real-Time Server**: Laravel Reverb (Native WebSocket)
+* **Queue Driver**: Database / Redis (Asynchronous Job Batching)
+* **Database**: MySQL 8.0 / PostgreSQL
 
-## Laravel Sponsors
+---
+## ⚙️ Panduan Instalasi Manual (Tanpa Docker)
+Jika anda lebih memilih untuk menjalankan aplikasi ini secara manual tanpa menggunakan Docker, berikut adalah langkah-langkah yang perlu Anda ikuti:
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### Prasyarat
+* PHP 8.2 atau lebih tinggi
+* Composer
+* Node.js 16 atau lebih tinggi
+* MySQL 8.0
+* Redis
 
-### Premium Partners
+### Langkah Setup Aplikasi Manual
+1. **Salin Environment Variables**
+   Salin file konfigurasi lingkungan dan sesuaikan kunci API jika diperlukan:
+   ```
+   cp .env.example .env
+   ```
+2. **Instalasi Dependencies**
+   Jalankan perintah berikut untuk menginstal dependencies PHP dan Javascript:
+   ```
+   composer install
+   npm install
+   npm run build
+   ```
+3. **Jalankan Migrasi & Database Seeder**
+   Isi database dengan struktur tabel untuk keperluan pengujian awal:
+   ```
+   php artisan migrate --seed
+   ```
+4. **Jalankan Queue Worker**
+   Untuk memproses langkah-langkah alur kerja secara asinkronus, jalankan queue worker di terminal terpisah:
+   ```
+   php artisan queue:work
+   ```
+5. **Jalankan Reverb**
+   Untuk mengaktifkan server WebSocket Reverb yang menangani komunikasi real-time, jalankan perintah berikut di terminal terpisah:
+   ```
+   php artisan reverb:start
+   ```
+6. **Jalankan Server Aplikasi**
+   Jalankan server Laravel untuk mengakses dashboard:
+   ```
+   php artisan serve
+   ```
+7. **Akses Aplikasi**
+   Buka browser anda dan akses Dasbor FlowForge melalui alamat:
+   - Web Dashboard: http://localhost:8000/dashboard
+   - WebSocket Port: 8080
+   - Pastikan Redis berjalan di latar belakang
+  
+## 🐳 Panduan Instalasi Menggunakan Docker
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+Aplikasi ini juga dikemas menggunakan Docker agar dapat dijalankan secara instan di lingkungan lokal Anda tanpa perlu menginstal PHP atau Node.js secara manual.
 
-## Contributing
+### Prasyarat
+* Sudah menginstal [Docker Desktop](https://www.docker.com/products/docker-desktop/) di perangkat Anda.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Langkah Setup Aplikasi via Docker
 
-## Code of Conduct
+1. **Salin Environment Variables**
+   Salin file konfigurasi lingkungan dan sesuaikan kunci API jika diperlukan:
+   ```
+   cp .env.example .env
+   ```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
 
-## Security Vulnerabilities
+2. **Build dan Nyalakan Kontainer**
+    Jalankan perintah ini untuk membangun image dan menyalakan seluruh stack (Aplikasi, Database, Queue Worker, dan Reverb) di background:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+    ```
+    docker-compose up -d --build
+    ```
 
-## License
+3. **Jalankan Migrasi & Database Seeder**
+    Isi database dengan struktur tabel untuk keperluan pengujian awal:
+    ```
+    docker-compose exec app php artisan migrate --seed
+    ```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+4. **Akses Aplikasi**
+    Buka browser Anda dan akses Dasbor FlowForge melalui alamat:
+    - Web Dashboard: http://localhost:8000/dashboard
+    - WebSocket Port: 8080 (Internal Reverb Communication)
+
+## 🔍 Alur Kerja Arsitektur & Penyelesaian Masalah
+1. Validasi Siklus (Topological Sort)
+    Sebelum alur kerja dijalankan, sistem akan mengevaluasi seluruh susunan steps menggunakan Kahn's Algorithm (BFS) di level backend (validateAndSort). Jika pengguna tidak sengaja membuat hubungan yang berputar (looping), sistem akan langsung melempar exception:
+    ```
+    throw new Exception("Circular dependency detected! Alur kerja Anda memiliki perulangan yang dilarang.");
+    ```
+
+2. Penanganan Race Condition pada Multi-Worker
+    Untuk mencegah dua worker mengeksekusi node anak yang sama secara bersamaan ketika dua parent dependency selesai secara paralel, FlowForge menerapkan taktik pembaruan baris database atomik:
+    ```
+    $affectedRows = StepRun::where('workflow_run_id', $this->workflowRunId)
+        ->where('step_id', $nextStep['id'])
+        ->where('status', 'PENDING') // Pagar Pengaman
+        ->update(['status' => 'RUNNING', 'started_at' => now()]);
+
+    if ($affectedRows > 0) {
+        // Hanya 1 worker yang berhasil merebut hak eksekusi yang boleh melakukan dispatch!
+        dispatch(new ExecuteWorkflowStep(...));
+    }
+    ```
+
+## 🖥️ Pengujian Mandiri (Testing)
+Untuk memastikan seluruh fungsi orkestrasi dan logika bisnis berjalan sesuai dengan spesifikasi ekspektasi, Anda dapat menjalankan unit testing bawaan melalui kontainer aplikasi:
+**Docker:**
+```
+docker-compose exec app php artisan test
+```
+**Manual:**
+```
+php artisan test
+```

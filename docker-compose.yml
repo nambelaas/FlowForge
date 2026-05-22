@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: flowforge-app
+    command: php artisan serve --host=0.0.0.0 --port=8000
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/var/www
+      - /var/www/node_modules
+    depends_on:
+      - db
+    networks:
+      - flowforge-network
+  
+  vite:
+    image: flowforge-app
+    restart: unless-stopped
+    command: npm run dev -- --host
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./:/var/www
+      - /var/www/node_modules
+    networks:
+      - flowforge-network
+
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-flowforge}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - dbdata:/var/lib/mysql
+    networks:
+      - flowforge-network
+
+  queue-worker:
+    image: flowforge-app
+    command: php artisan queue:work --verbose --tries=3 --timeout=90
+    restart: unless-stopped
+    volumes:
+      - ./:/var/www
+      - /var/www/node_modules 
+    depends_on:
+      - app
+      - db
+    networks:
+      - flowforge-network
+
+  reverb:
+    image: flowforge-app
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    volumes:
+      - ./:/var/www
+    depends_on:
+      - app
+    networks:
+      - flowforge-network
+
+networks:
+  flowforge-network:
+    driver: bridge
+
+volumes:
+  dbdata:
+    driver: local
